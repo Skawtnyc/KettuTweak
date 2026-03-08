@@ -4,12 +4,12 @@
 #import "Utils.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
-@implementation BunnySettingsViewController
+@implementation KettuTweakSettingsViewController
 
 - (instancetype)initWithVersion:(NSString *)version {
     self = [super init];
     if (self) {
-        self.title = [NSString stringWithFormat:@"Bunny v%@ Recovery Menu", version];
+        self.title = [NSString stringWithFormat:@"KettuTweak v%@ Recovery Menu", version];
     }
     return self;
 }
@@ -227,7 +227,7 @@
                                                                      URLQueryAllowedCharacterSet]];
 
     NSString *urlString = [NSString
-        stringWithFormat:@"https://github.com/bunny-mod/BunnyTweak/issues/new?title=%@&body=%@",
+        stringWithFormat:@"https://github.com/C0C0B01/KettuTweak/issues/new?title=%@&body=%@",
                          encodedTitle, encodedBody];
     NSURL *url          = [NSURL URLWithString:urlString];
     [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
@@ -338,8 +338,8 @@
 }
 
 void showSettingsSheet(void) {
-    BunnySettingsViewController *settingsVC =
-        [[BunnySettingsViewController alloc] initWithVersion:PACKAGE_VERSION];
+    KettuTweakSettingsViewController *settingsVC =
+        [[KettuTweakSettingsViewController alloc] initWithVersion:PACKAGE_VERSION];
 
     UINavigationController *navController =
         [[UINavigationController alloc] initWithRootViewController:settingsVC];

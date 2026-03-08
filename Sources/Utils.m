@@ -156,7 +156,7 @@ void setCustomBundleURL(NSURL *url, UIViewController *presenter) {
 void resetCustomBundleURL(UIViewController *presenter) {
     LoaderConfig *config        = [LoaderConfig getLoaderConfig];
     config.customLoadUrlEnabled = NO;
-    config.customLoadUrl        = [NSURL URLWithString:@"http://localhost:4040/bunny.js"];
+    config.customLoadUrl        = [NSURL URLWithString:@"http://localhost:4040/kettu.js"];
     [config saveConfig];
     removeCachedBundle();
     gracefulExit(presenter);
@@ -246,7 +246,7 @@ void showBundleSelector(UIViewController *presenter) {
                                      preferredStyle:UIAlertControllerStyleAlert];
     [presenter presentViewController:loadingAlert animated:YES completion:nil];
 
-    NSURL *url = [NSURL URLWithString:@"https://api.github.com/repos/bunny-mod/builds/branches"];
+    NSURL *url = [NSURL URLWithString:@"https://api.github.com/repos/C0C0B01/KettuTweak/branches"];
     NSURLSession *session = [NSURLSession
         sessionWithConfiguration:[NSURLSessionConfiguration defaultSessionConfiguration]];
 
@@ -324,7 +324,7 @@ static void showCommitsForBranch(NSString *branch, UIViewController *presenter,
 
     NSString *commitsUrl = [NSString
         stringWithFormat:
-            @"https://api.github.com/repos/bunny-mod/builds/commits?sha=%@&per_page=10", branch];
+            @"https://api.github.com/repos/C0C0B01/KettuTweak/commits?sha=%@&per_page=10", branch];
     NSURL *commitsURL    = [NSURL URLWithString:commitsUrl];
 
     [[session
@@ -390,13 +390,7 @@ static void showCommitsForBranch(NSString *branch, UIViewController *presenter,
                                                                        NSString *bundleUrl =
                                                                            [NSString
                                                                                stringWithFormat:
-                                                                                   @"https://"
-                                                                                   @"raw."
-                                                                                   @"githubusercont"
-                                                                                   @"ent.com/"
-                                                                                   @"bunny-mod/"
-                                                                                   @"builds/%@/"
-                                                                                   @"bunny.min.js",
+                                                                                   @"https://raw.githubusercontent.com/C0C0B01/KettuTweak/%@/bundle.js",
                                                                                    sha];
                                                                        NSURL *url = [NSURL
                                                                            URLWithString:bundleUrl];
@@ -421,19 +415,75 @@ static void showCommitsForBranch(NSString *branch, UIViewController *presenter,
         }] resume];
 }
 
-void removeCachedBundle(void) {
+NSURL *getBundleBackupURL(void) {
+    return [getPyoncordDirectory() URLByAppendingPathComponent:@"bundle.js.backup"];
+}
+
+void moveCachedBundleToBackup(void) {
+    NSFileManager *fm = [NSFileManager defaultManager];
     NSURL *bundleURL = [getPyoncordDirectory() URLByAppendingPathComponent:@"bundle.js"];
-    NSError *error   = nil;
-    [[NSFileManager defaultManager] removeItemAtURL:bundleURL error:&error];
-    if (error) {
-        BunnyLog(@"Failed to remove cached bundle: %@", error);
+    NSURL *backupURL = getBundleBackupURL();
+
+    if ([fm fileExistsAtPath:backupURL.path]) {
+        NSError *removeError = nil;
+        [fm removeItemAtURL:backupURL error:&removeError];
+        if (removeError) {
+            BunnyLog(@"Failed to remove old backup: %@", removeError);
+        }
+    }
+
+    if ([fm fileExistsAtPath:bundleURL.path]) {
+        NSError *moveError = nil;
+        [fm moveItemAtURL:bundleURL toURL:backupURL error:&moveError];
+        if (moveError) {
+            BunnyLog(@"Failed to create bundle backup: %@", moveError);
+        } else {
+            BunnyLog(@"Successfully moved bundle to backup");
+        }
+    } else {
+        BunnyLog(@"No cached bundle to backup");
     }
 }
 
-void refetchBundle(UIViewController *presenter) {
-    removeCachedBundle();
-    gracefulExit(presenter);
+BOOL restoreBundleFromBackup(void) {
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSURL *bundleURL = [getPyoncordDirectory() URLByAppendingPathComponent:@"bundle.js"];
+    NSURL *backupURL = getBundleBackupURL();
+
+    if ([fm fileExistsAtPath:backupURL.path]) {
+        if ([fm fileExistsAtPath:bundleURL.path]) {
+            [fm removeItemAtURL:bundleURL error:nil];
+        }
+
+        NSError *error = nil;
+        [fm moveItemAtURL:backupURL toURL:bundleURL error:&error];
+        if (error) {
+            BunnyLog(@"Failed to restore bundle from backup: %@", error);
+            return NO;
+        }
+        BunnyLog(@"Successfully restored bundle from backup");
+        return YES;
+    }
+
+    BunnyLog(@"No backup bundle found to restore");
+    return NO;
 }
+
+void cleanupBundleBackup(void) {
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSURL *backupURL = getBundleBackupURL();
+
+    if ([fm fileExistsAtPath:backupURL.path]) {
+        NSError *error = nil;
+        [fm removeItemAtURL:backupURL error:&error];
+        if (error) {
+            BunnyLog(@"Failed to cleanup backup: %@", error);
+        } else {
+            BunnyLog(@"Cleaned up bundle backup");
+        }
+    }
+}
+
 
 void deletePluginsAndReload(UIViewController *presenter) {
     deletePlugins();
@@ -443,4 +493,19 @@ void deletePluginsAndReload(UIViewController *presenter) {
 void deleteThemesAndReload(UIViewController *presenter) {
     deleteThemes();
     reloadApp(presenter);
+}
+
+void refetchBundle(UIViewController *presenter) {
+    moveCachedBundleToBackup();
+    reloadApp(presenter);
+}
+
+void removeCachedBundle(void) {
+    NSError *error = nil;
+    [[NSFileManager defaultManager]
+        removeItemAtURL:[getPyoncordDirectory() URLByAppendingPathComponent:@"bundle.js"]
+                  error:&error];
+    if (error) {
+        BunnyLog(@"Failed to remove cached bundle: %@", error);
+    }
 }

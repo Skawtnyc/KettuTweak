@@ -4,9 +4,11 @@ INSTALL_TARGET_PROCESSES = Discord
 THEOS_PACKAGE_SCHEME = rootless
 FINALPACKAGE = 1
 
-include $(THEOS)/makefiles/common.mk
+# this doesnt work on my machine, i guess fish is stupid with paths
+# include $(THEOS)/makefiles/common.mk
+include /home/cocobo1/theos/makefiles/common.mk
 
-TWEAK_NAME = Bunny
+TWEAK_NAME = KettuTweak
 BUNDLE_NAME = BunnyResources
 
 Bunny_FILES = $(wildcard Sources/*.x Sources/*.m Sources/**/*.x Sources/**/*.m)

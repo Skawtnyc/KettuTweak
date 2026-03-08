@@ -65,7 +65,7 @@ id                    gBridge        = nil;
     else
     {
         bundleUrl = [NSURL
-            URLWithString:@"https://raw.githubusercontent.com/bunny-mod/builds/main/bunny.min.js"];
+            URLWithString:@"https://codeberg.org/cocobo1/Kettu/raw/branch/dist/kettu.min.js"];
         BunnyLog(@"Using default bundle URL: %@", bundleUrl.absoluteString);
     }
 
@@ -83,17 +83,20 @@ id                    gBridge        = nil;
         [bundleRequest setValue:bundleEtag forHTTPHeaderField:@"If-None-Match"];
     }
 
-    NSURLSession *session = [NSURLSession
+    NSURLSession *session            = [NSURLSession
         sessionWithConfiguration:[NSURLSessionConfiguration defaultSessionConfiguration]];
+    __block BOOL  downloadSuccessful = NO;
+
     [[session
         dataTaskWithRequest:bundleRequest
           completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
               if ([response isKindOfClass:[NSHTTPURLResponse class]])
               {
                   NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *) response;
-                  if (httpResponse.statusCode == 200)
+                  if (httpResponse.statusCode == 200 && data && data.length > 0)
                   {
-                      bundle = data;
+                      bundle             = data;
+                      downloadSuccessful = YES;
                       [bundle
                           writeToURL:[pyoncordDirectory URLByAppendingPathComponent:@"bundle.js"]
                           atomically:YES];
@@ -107,8 +110,46 @@ id                    gBridge        = nil;
                                 encoding:NSUTF8StringEncoding
                                    error:nil];
                       }
+
+                      BunnyLog(@"Bundle download successful, cleaning up backup");
+                      cleanupBundleBackup();
+                  }
+                  else if (httpResponse.statusCode == 304)
+                  {
+                      BunnyLog(@"Bundle not modified (304), cleaning up backup");
+                      downloadSuccessful = YES;
+                      cleanupBundleBackup();
+                  }
+                  else
+                  {
+                      BunnyLog(@"Bundle download failed with status: %ld",
+                               (long) httpResponse.statusCode);
                   }
               }
+              else if (error)
+              {
+                  BunnyLog(@"Bundle download error: %@", error.localizedDescription);
+              }
+
+              if (!downloadSuccessful && !bundle)
+              {
+                  BunnyLog(@"No bundle available, attempting to restore from backup");
+                  if (restoreBundleFromBackup())
+                  {
+                      bundle = [NSData
+                          dataWithContentsOfURL:[pyoncordDirectory
+                                                    URLByAppendingPathComponent:@"bundle.js"]];
+                      if (bundle)
+                      {
+                          BunnyLog(@"Successfully restored bundle from backup");
+                      }
+                  }
+                  else
+                  {
+                      BunnyLog(@"Failed to restore bundle from backup");
+                  }
+              }
+
               dispatch_group_leave(group);
           }] resume];
 
@@ -172,6 +213,14 @@ id                    gBridge        = nil;
     {
         BunnyLog(@"Executing JS bundle");
         %orig(bundle, source, async);
+    }
+    else
+    {
+        BunnyLog(@"ERROR: No bundle available to execute!");
+        showErrorAlert(
+            @"Bundle Error",
+            @"Failed to load bundle. Please check your internet connection and restart the app.",
+            nil);
     }
 
     NSURL *preloadsDirectory = [pyoncordDirectory URLByAppendingPathComponent:@"preloads"];
@@ -243,10 +292,11 @@ id                    gBridge        = nil;
 {
     @autoreleasepool
     {
-        source = [NSURL URLWithString:@"bunny"];
+        source = [NSURL URLWithString:@"kettu"];
 
         NSString *install_prefix = @"/var/jb";
         isJailbroken             = [[NSFileManager defaultManager] fileExistsAtPath:install_prefix];
+        BOOL jbPathExists        = [[NSFileManager defaultManager] fileExistsAtPath:install_prefix];
 
         NSString *bundlePath =
             [NSString stringWithFormat:@"%@/Library/Application Support/BunnyResources.bundle",
@@ -265,17 +315,57 @@ id                    gBridge        = nil;
             [[NSFileManager defaultManager] fileExistsAtPath:bunnyPatchesBundlePath];
         BunnyLog(@"Bundle exists at path: %d", bundleExists);
 
-        NSError *error = nil;
-        NSArray *bundleContents =
-            [[NSFileManager defaultManager] contentsOfDirectoryAtPath:bunnyPatchesBundlePath
-                                                                error:&error];
-        if (error)
+        if (jbPathExists)
         {
-            BunnyLog(@"Error listing bundle contents: %@", error);
+            BunnyLog(@"Jailbreak path exists, attempting to load bundle from: %@", bundlePath);
+
+            BOOL      bundleExists = [[NSFileManager defaultManager] fileExistsAtPath:bundlePath];
+            NSBundle *testBundle   = [NSBundle bundleWithPath:bundlePath];
+
+            if (bundleExists && testBundle)
+            {
+                bunnyPatchesBundlePath = bundlePath;
+                BunnyLog(@"Successfully loaded bundle from jailbroken path");
+            }
+            else
+            {
+                BunnyLog(@"Bundle not found or invalid at jailbroken path, falling back to jailed");
+                bunnyPatchesBundlePath = jailedPath;
+            }
         }
         else
         {
-            BunnyLog(@"Bundle contents: %@", bundleContents);
+            BunnyLog(@"Not jailbroken, using jailed bundle path");
+            bunnyPatchesBundlePath = jailedPath;
+        }
+
+        BunnyLog(@"Selected bundle path: %@", bunnyPatchesBundlePath);
+
+        NSBundle *bunnyPatchesBundle = [NSBundle bundleWithPath:bunnyPatchesBundlePath];
+        if (!bunnyPatchesBundle)
+        {
+            BunnyLog(@"Failed to load bunnyPatches bundle from any path");
+            BunnyLog(@"  Jailbroken path: %@", bundlePath);
+            BunnyLog(@"  Jailed path: %@", jailedPath);
+            BunnyLog(@"  /var/jb exists: %d", jbPathExists);
+
+            bunnyPatchesBundlePath = nil;
+        }
+        else
+        {
+            BunnyLog(@"Bundle loaded successfully");
+            NSError *error = nil;
+            NSArray *bundleContents =
+                [[NSFileManager defaultManager] contentsOfDirectoryAtPath:bunnyPatchesBundlePath
+                                                                    error:&error];
+            if (error)
+            {
+                BunnyLog(@"Error listing bundle contents: %@", error);
+            }
+            else
+            {
+                BunnyLog(@"Bundle contents: %@", bundleContents);
+            }
         }
 
         pyoncordDirectory = getPyoncordDirectory();
