@@ -4,7 +4,7 @@
 #import "Utils.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
-@implementation KettuTweakSettingsViewController
+@implementation BunnySettingsViewController
 
 - (instancetype)initWithVersion:(NSString *)version {
     self = [super init];
@@ -338,8 +338,8 @@
 }
 
 void showSettingsSheet(void) {
-    KettuTweakSettingsViewController *settingsVC =
-        [[KettuTweakSettingsViewController alloc] initWithVersion:PACKAGE_VERSION];
+    BunnySettingsViewController *settingsVC =
+        [[BunnySettingsViewController alloc] initWithVersion:PACKAGE_VERSION];
 
     UINavigationController *navController =
         [[UINavigationController alloc] initWithRootViewController:settingsVC];

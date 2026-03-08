@@ -1,11 +1,13 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
-@class BunnySettingsViewController;
+@class KettuTweakSettingsViewController;
 
 extern BOOL isJailbroken;
 BOOL        isSafeModeEnabled(void);
+BOOL        restoreBundleFromBackup(void);
 NSURL      *getPyoncordDirectory(void);
+NSURL      *getBundleBackupURL(void);
 UIColor    *hexToUIColor(NSString *hex);
 NSString   *getDeviceIdentifier(void);
 void        showErrorAlert(NSString *title, NSString *message, void (^completion)(void));
@@ -22,3 +24,5 @@ void        removeCachedBundle(void);
 void        gracefulExit(UIViewController *presenter);
 void        deletePluginsAndReload(UIViewController *presenter);
 void        deleteThemesAndReload(UIViewController *presenter);
+void        moveCachedBundleToBackup(void);
+void        cleanupBundleBackup(void);
