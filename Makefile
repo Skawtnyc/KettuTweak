@@ -9,7 +9,7 @@ FINALPACKAGE = 1
 include /home/cocobo1/theos/makefiles/common.mk
 
 TWEAK_NAME = KettuTweak
-BUNDLE_NAME = BunnyResources
+BUNDLE_NAME = KettuTweakResources
 
 Bunny_FILES = $(wildcard Sources/*.x Sources/*.m Sources/**/*.x Sources/**/*.m)
 Bunny_CFLAGS = -fobjc-arc -DPACKAGE_VERSION='@"$(THEOS_PACKAGE_BASE_VERSION)"' -I$(THEOS_PROJECT_DIR)/Headers
